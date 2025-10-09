@@ -1,3 +1,3 @@
-BOT_TOKEN = "token"
-ADMIN_IDS = [id]  # твой Telegram ID
+BOT_TOKEN = "8314420957:AAH275Ln3c_dgiqHLkX4STjSp4I8Q6jALsw"
+ADMIN_IDS = [1113449301 , 6501929702 ]  # твой Telegram ID
 DEBUG = False
