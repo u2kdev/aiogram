@@ -1,4 +1,3 @@
-# main.py
 import json
 import datetime
 import base64
@@ -127,14 +126,14 @@ async def clear_menu_messages(message: Message, look_back: int = 6):
 async def show_main_menu(chat_id: int):
     """Отображение главного меню с фото"""
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📋 Вакансии", callback_data="A_vacancies")],
-        [InlineKeyboardButton(text="ℹ️ О нас", callback_data="about")]
+        [InlineKeyboardButton(text="📋 Vakansiyalar", callback_data="A_vacancies")],
+        [InlineKeyboardButton(text="ℹ️ Biz haqimizda", callback_data="about")]
     ])
     try:
         photo = FSInputFile(MENU_PHOTO)
-        await bot.send_photo(chat_id=chat_id, photo=photo, caption="Главное меню:", reply_markup=kb)
+        await bot.send_photo(chat_id=chat_id, photo=photo, caption="Asosiy menyu:", reply_markup=kb)
     except Exception:
-        await bot.send_message(chat_id=chat_id, text="Главное меню:", reply_markup=kb)
+        await bot.send_message(chat_id=chat_id, text="Asosiy menyu:", reply_markup=kb)
 
 
 # --------- /start -------------
@@ -152,11 +151,11 @@ async def cmd_start(message: Message):
         return
 
     kb = ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="📱 Отправить контакт", request_contact=True)]],
+        keyboard=[[KeyboardButton(text="📱 Kontakt yuborish", request_contact=True)]],
         resize_keyboard=True,
         one_time_keyboard=True
     )
-    await message.answer("👋 Привет! Отправь свой контакт для регистрации:", reply_markup=kb)
+    await message.answer("👋 Salom! Ro'yxatdan o'tish uchun kontaktingizni yuboring:", reply_markup=kb)
 
 
 # --------- Обработка контакта -------------
@@ -176,28 +175,36 @@ async def handle_contact(message: Message):
             "registered_at": datetime.datetime.now().isoformat()
         })
         save_users(users_obj)
-        log_admin(f"Новый пользователь: {user_id} | {message.from_user.full_name}")
-        await message.answer("✅ Регистрация завершена!", reply_markup=ReplyKeyboardRemove())
+        log_admin(f"Yangi foydalanuvchi: {user_id} | {message.from_user.full_name}")
+        await message.answer("✅ Ro'yxatdan o'tish yakunlandi!", reply_markup=ReplyKeyboardRemove())
 
     await clear_menu_messages(message)
     await show_main_menu(message.chat.id)
 
 
 # --------- О нас -------------
+# --------- О нас -------------
 @dp.callback_query(F.data == "about")
 async def show_about(callback: CallbackQuery):
     """Информация о компании"""
+    # Удаляем сообщение с главным меню (которое с фото)
+    await delete_message_if_exists(callback.message.chat.id, callback.message.message_id)
+
     text = (
-        "ℹ️ **О нас**\n\n"
-        "Мы помогаем найти работу за рубежом!\n"
-        "Наша команда профессионалов подберет для вас лучшие вакансии "
-        "и поможет с трудоустройством.\n\n"
-        "📞 Свяжитесь с нами для консультации!"
+        "ℹ️ **Biz haqimizda**\n\n"
+        "📞 Telefon: +90898391391\n"
+        "📍 Manzil: Amir Temur tumani\n"
+        "🏢 Tashkilot: OOO Artyer\n\n"
+        "Biz chet elda ish topishda yordam beramiz!\n"
+        "Bizning professional jamoamiz sizga eng yaxshi vakansiyalarni tanlab beradi "
+        "va ishga joylashishda yordam beradi.\n\n"
+        "📞 Maslahat olish uchun biz bilan bog'laning!"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data="back_main")]
+        [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="back_main")]
     ])
-    await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+    # Отправляем новое сообщение с текстом
+    await callback.message.answer(text, reply_markup=kb, parse_mode="Markdown")
     await callback.answer()
 
 
@@ -205,6 +212,7 @@ async def show_about(callback: CallbackQuery):
 @dp.callback_query(F.data == "back_main")
 async def back_main(callback: CallbackQuery):
     """Возврат в главное меню"""
+    # Удаляем сообщение с "О нас"
     await delete_message_if_exists(callback.message.chat.id, callback.message.message_id)
     await show_main_menu(callback.message.chat.id)
     await callback.answer()
@@ -222,13 +230,13 @@ async def a_vacancies(callback: CallbackQuery):
         kb_builder.button(text=f"🌍 {cname}", callback_data=f"B_open:{enc(cname)}")
 
     if callback.from_user.id in ADMIN_IDS:
-        kb_builder.button(text="➕ Добавить страну", callback_data="B_add")
+        kb_builder.button(text="➕ Mamlakat qo'shish", callback_data="B_add")
         if vac["countries"]:
-            kb_builder.button(text="🗑 Удалить страну", callback_data="B_del")
+            kb_builder.button(text="🗑 Mamlakatni o'chirish", callback_data="B_del")
 
-    kb_builder.button(text="⬅️ Назад", callback_data="back_main")
+    kb_builder.button(text="⬅️ Orqaga", callback_data="back_main")
     kb_builder.adjust(2)
-    await callback.message.answer("📋 Вакансии — выберите страну:", reply_markup=kb_builder.as_markup())
+    await callback.message.answer("📋 Vakansiyalar — mamlakatni tanlang:", reply_markup=kb_builder.as_markup())
     await callback.answer()
 
 
@@ -237,10 +245,10 @@ async def a_vacancies(callback: CallbackQuery):
 async def b_add_start(callback: CallbackQuery, state: FSMContext):
     """Начало добавления страны"""
     if callback.from_user.id not in ADMIN_IDS:
-        await callback.answer("⛔️ Доступно только админам.", show_alert=True)
+        await callback.answer("⛔️ Faqat adminlar uchun.", show_alert=True)
         return
 
-    await callback.message.answer("Введите название новой страны:")
+    await callback.message.answer("Yangi mamlakat nomini kiriting:")
     await state.set_state(Form.add_country)
     await callback.answer()
 
@@ -249,7 +257,7 @@ async def b_add_start(callback: CallbackQuery, state: FSMContext):
 async def b_add_name(message: Message, state: FSMContext):
     """Сохранение новой страны"""
     if message.from_user.id not in ADMIN_IDS:
-        await message.answer("⛔️ Доступно только админам.")
+        await message.answer("⛔️ Faqat adminlar uchun.")
         await state.clear()
         return
 
@@ -257,15 +265,15 @@ async def b_add_name(message: Message, state: FSMContext):
     vac = load_vacancies()
 
     if name in vac["countries"]:
-        await message.answer("⚠️ Такая страна уже существует.")
+        await message.answer("⚠️ Bu mamlakat allaqachon mavjud.")
         await state.clear()
         return
 
     vac["countries"][name] = {"jobs": {}}
     save_vacancies(vac)
-    log_admin(f"Admin {message.from_user.id} добавил страну: {name}")
+    log_admin(f"Admin {message.from_user.id} mamlakat qo'shdi: {name}")
 
-    await message.answer(f"✅ Страна '{name}' добавлена.")
+    await message.answer(f"✅ '{name}' mamlakati qo'shildi.")
     await state.clear()
 
     # Возврат в меню вакансий
@@ -276,11 +284,11 @@ async def b_add_name(message: Message, state: FSMContext):
     for cname in vac["countries"].keys():
         kb_builder.button(text=f"🌍 {cname}", callback_data=f"B_open:{enc(cname)}")
     if message.from_user.id in ADMIN_IDS:
-        kb_builder.button(text="➕ Добавить страну", callback_data="B_add")
-        kb_builder.button(text="🗑 Удалить страну", callback_data="B_del")
-    kb_builder.button(text="⬅️ Назад", callback_data="back_main")
+        kb_builder.button(text="➕ Mamlakat qo'shish", callback_data="B_add")
+        kb_builder.button(text="🗑 Mamlakatni o'chirish", callback_data="B_del")
+    kb_builder.button(text="⬅️ Orqaga", callback_data="back_main")
     kb_builder.adjust(2)
-    await message.answer("📋 Вакансии — выберите страну:", reply_markup=kb_builder.as_markup())
+    await message.answer("📋 Vakansiyalar — mamlakatni tanlang:", reply_markup=kb_builder.as_markup())
 
 
 # --------- Удалить страну (B) -------------
@@ -288,7 +296,7 @@ async def b_add_name(message: Message, state: FSMContext):
 async def b_del_start(callback: CallbackQuery):
     """Выбор страны для удаления"""
     if callback.from_user.id not in ADMIN_IDS:
-        await callback.answer("⛔️ Доступно только админам.", show_alert=True)
+        await callback.answer("⛔️ Faqat adminlar uchun.", show_alert=True)
         return
 
     vac = load_vacancies()
@@ -297,9 +305,9 @@ async def b_del_start(callback: CallbackQuery):
     for cname in vac["countries"].keys():
         kb.button(text=f"🗑 {cname}", callback_data=f"B_delete:{enc(cname)}")
 
-    kb.button(text="❌ Отмена", callback_data="A_vacancies")
+    kb.button(text="❌ Bekor qilish", callback_data="A_vacancies")
     kb.adjust(2)
-    await callback.message.edit_text("Выберите страну для удаления:", reply_markup=kb.as_markup())
+    await callback.message.edit_text("O'chirish uchun mamlakatni tanlang:", reply_markup=kb.as_markup())
     await callback.answer()
 
 
@@ -307,7 +315,7 @@ async def b_del_start(callback: CallbackQuery):
 async def b_delete(callback: CallbackQuery):
     """Подтверждение удаления страны"""
     if callback.from_user.id not in ADMIN_IDS:
-        await callback.answer("⛔️ Доступно только админам.", show_alert=True)
+        await callback.answer("⛔️ Faqat adminlar uchun.", show_alert=True)
         return
 
     enc_name = callback.data.split(":", 1)[1]
@@ -317,8 +325,8 @@ async def b_delete(callback: CallbackQuery):
     if name in vac["countries"]:
         del vac["countries"][name]
         save_vacancies(vac)
-        log_admin(f"Admin {callback.from_user.id} удалил страну: {name}")
-        await callback.answer(f"🗑 Страна '{name}' удалена.", show_alert=True)
+        log_admin(f"Admin {callback.from_user.id} mamlakatni o'chirdi: {name}")
+        await callback.answer(f"🗑 '{name}' mamlakati o'chirildi.", show_alert=True)
 
     # Возврат в меню вакансий
     await delete_message_if_exists(callback.message.chat.id, callback.message.message_id)
@@ -327,12 +335,12 @@ async def b_delete(callback: CallbackQuery):
     for cname in vac["countries"].keys():
         kb_builder.button(text=f"🌍 {cname}", callback_data=f"B_open:{enc(cname)}")
     if callback.from_user.id in ADMIN_IDS:
-        kb_builder.button(text="➕ Добавить страну", callback_data="B_add")
+        kb_builder.button(text="➕ Mamlakat qo'shish", callback_data="B_add")
         if vac["countries"]:
-            kb_builder.button(text="🗑 Удалить страну", callback_data="B_del")
-    kb_builder.button(text="⬅️ Назад", callback_data="back_main")
+            kb_builder.button(text="🗑 Mamlakatni o'chirish", callback_data="B_del")
+    kb_builder.button(text="⬅️ Orqaga", callback_data="back_main")
     kb_builder.adjust(2)
-    await callback.message.answer("📋 Вакансии — выберите страну:", reply_markup=kb_builder.as_markup())
+    await callback.message.answer("📋 Vakansiyalar — mamlakatni tanlang:", reply_markup=kb_builder.as_markup())
 
 
 # --------- Открыть страну (B -> показать C) -------------
@@ -344,7 +352,7 @@ async def b_open(callback: CallbackQuery):
     vac = load_vacancies()
 
     if name not in vac["countries"]:
-        await callback.answer("⚠️ Страна не найдена.", show_alert=True)
+        await callback.answer("⚠️ Mamlakat topilmadi.", show_alert=True)
         return
 
     await delete_message_if_exists(callback.message.chat.id, callback.message.message_id)
@@ -356,13 +364,13 @@ async def b_open(callback: CallbackQuery):
         kb.button(text=f"💼 {j}", callback_data=f"C_open:{enc(name)}:{enc(j)}")
 
     if callback.from_user.id in ADMIN_IDS:
-        kb.button(text="➕ Добавить вакансию", callback_data=f"C_add:{enc(name)}")
+        kb.button(text="➕ Vakansiya qo'shish", callback_data=f"C_add:{enc(name)}")
         if jobs:
-            kb.button(text="🗑 Удалить вакансию", callback_data=f"C_del:{enc(name)}")
+            kb.button(text="🗑 Vakansiyani o'chirish", callback_data=f"C_del:{enc(name)}")
 
-    kb.button(text="⬅️ Назад", callback_data="A_vacancies")
+    kb.button(text="⬅️ Orqaga", callback_data="A_vacancies")
     kb.adjust(2)
-    await callback.message.answer(f"🌍 {name} — вакансии:", reply_markup=kb.as_markup())
+    await callback.message.answer(f"🌍 {name} — vakansiyalar:", reply_markup=kb.as_markup())
     await callback.answer()
 
 
@@ -371,14 +379,14 @@ async def b_open(callback: CallbackQuery):
 async def c_add_start(callback: CallbackQuery, state: FSMContext):
     """Начало добавления вакансии"""
     if callback.from_user.id not in ADMIN_IDS:
-        await callback.answer("⛔️ Доступно только админам.", show_alert=True)
+        await callback.answer("⛔️ Faqat adminlar uchun.", show_alert=True)
         return
 
     enc_name = callback.data.split(":", 1)[1]
     country = dec(enc_name)
     await state.update_data(country=country)
     await state.set_state(Form.add_job_name)
-    await callback.message.answer(f"Введите название вакансии для страны '{country}':")
+    await callback.message.answer(f"'{country}' mamlakati uchun vakansiya nomini kiriting:")
     await callback.answer()
 
 
@@ -389,7 +397,7 @@ async def c_add_name(message: Message, state: FSMContext):
     country = data_state.get("country")
 
     if not country or message.from_user.id not in ADMIN_IDS:
-        await message.answer("⚠️ Ошибка — повторите попытку.")
+        await message.answer("⚠️ Xatolik — qayta urinib ko'ring.")
         await state.clear()
         return
 
@@ -397,13 +405,13 @@ async def c_add_name(message: Message, state: FSMContext):
     vac = load_vacancies()
 
     if job_name in vac["countries"].get(country, {}).get("jobs", {}):
-        await message.answer("⚠️ Такая вакансия уже существует.")
+        await message.answer("⚠️ Bu vakansiya allaqachon mavjud.")
         await state.clear()
         return
 
     await state.update_data(job=job_name)
     await state.set_state(Form.add_job_desc)
-    await message.answer(f"Теперь введите описание вакансии '{job_name}':")
+    await message.answer(f"Endi '{job_name}' vakansiyasi uchun tavsif kiriting:")
 
 
 @dp.message(Form.add_job_desc)
@@ -415,7 +423,7 @@ async def c_add_desc(message: Message, state: FSMContext):
     user_id = message.from_user.id
 
     if not country or not job_name or user_id not in ADMIN_IDS:
-        await message.answer("⚠️ Ошибка — повторите попытку.")
+        await message.answer("⚠️ Xatolik — qayta urinib ko'ring.")
         await state.clear()
         return
 
@@ -429,9 +437,9 @@ async def c_add_desc(message: Message, state: FSMContext):
         "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
     save_vacancies(vac)
-    log_admin(f"Admin {user_id} добавил вакансию '{job_name}' в {country}")
+    log_admin(f"Admin {user_id} '{job_name}' vakansiyasini qo'shdi: {country}")
 
-    await message.answer(f"✅ Вакансия '{job_name}' в '{country}' добавлена.")
+    await message.answer(f"✅ '{job_name}' vakansiyasi '{country}' mamlakatiga qo'shildi.")
     await state.clear()
 
     # Возврат в меню страны
@@ -444,11 +452,11 @@ async def c_add_desc(message: Message, state: FSMContext):
     for j in jobs.keys():
         kb.button(text=f"💼 {j}", callback_data=f"C_open:{enc(country)}:{enc(j)}")
     if user_id in ADMIN_IDS:
-        kb.button(text="➕ Добавить вакансию", callback_data=f"C_add:{enc(country)}")
-        kb.button(text="🗑 Удалить вакансию", callback_data=f"C_del:{enc(country)}")
-    kb.button(text="⬅️ Назад", callback_data="A_vacancies")
+        kb.button(text="➕ Vakansiya qo'shish", callback_data=f"C_add:{enc(country)}")
+        kb.button(text="🗑 Vakansiyani o'chirish", callback_data=f"C_del:{enc(country)}")
+    kb.button(text="⬅️ Orqaga", callback_data="A_vacancies")
     kb.adjust(2)
-    await message.answer(f"🌍 {country} — вакансии:", reply_markup=kb.as_markup())
+    await message.answer(f"🌍 {country} — vakansiyalar:", reply_markup=kb.as_markup())
 
 
 # --------- Удалить вакансию (C) -------------
@@ -456,7 +464,7 @@ async def c_add_desc(message: Message, state: FSMContext):
 async def c_del_start(callback: CallbackQuery):
     """Выбор вакансии для удаления"""
     if callback.from_user.id not in ADMIN_IDS:
-        await callback.answer("⛔️ Доступно только админам.", show_alert=True)
+        await callback.answer("⛔️ Faqat adminlar uchun.", show_alert=True)
         return
 
     enc_name = callback.data.split(":", 1)[1]
@@ -468,9 +476,9 @@ async def c_del_start(callback: CallbackQuery):
     for j in jobs.keys():
         kb.button(text=f"🗑 {j}", callback_data=f"C_delete:{enc_name}:{enc(j)}")
 
-    kb.button(text="❌ Отмена", callback_data=f"B_open:{enc_name}")
+    kb.button(text="❌ Bekor qilish", callback_data=f"B_open:{enc_name}")
     kb.adjust(2)
-    await callback.message.edit_text("Выберите вакансию для удаления:", reply_markup=kb.as_markup())
+    await callback.message.edit_text("O'chirish uchun vakansiyani tanlang:", reply_markup=kb.as_markup())
     await callback.answer()
 
 
@@ -478,7 +486,7 @@ async def c_del_start(callback: CallbackQuery):
 async def c_delete(callback: CallbackQuery):
     """Подтверждение удаления вакансии"""
     if callback.from_user.id not in ADMIN_IDS:
-        await callback.answer("⛔️ Доступно только админам.", show_alert=True)
+        await callback.answer("⛔️ Faqat adminlar uchun.", show_alert=True)
         return
 
     parts = callback.data.split(":")
@@ -491,8 +499,8 @@ async def c_delete(callback: CallbackQuery):
     if job in vac["countries"].get(country, {}).get("jobs", {}):
         del vac["countries"][country]["jobs"][job]
         save_vacancies(vac)
-        log_admin(f"Admin {callback.from_user.id} удалил вакансию '{job}' ({country})")
-        await callback.answer(f"🗑 Вакансия '{job}' удалена.", show_alert=True)
+        log_admin(f"Admin {callback.from_user.id} vakansiyani o'chirdi: '{job}' ({country})")
+        await callback.answer(f"🗑 '{job}' vakansiyasi o'chirildi.", show_alert=True)
 
     # Возврат в меню страны
     await delete_message_if_exists(callback.message.chat.id, callback.message.message_id)
@@ -502,12 +510,12 @@ async def c_delete(callback: CallbackQuery):
     for j in jobs.keys():
         kb.button(text=f"💼 {j}", callback_data=f"C_open:{enc(country)}:{enc(j)}")
     if callback.from_user.id in ADMIN_IDS:
-        kb.button(text="➕ Добавить вакансию", callback_data=f"C_add:{enc(country)}")
+        kb.button(text="➕ Vakansiya qo'shish", callback_data=f"C_add:{enc(country)}")
         if jobs:
-            kb.button(text="🗑 Удалить вакансию", callback_data=f"C_del:{enc(country)}")
-    kb.button(text="⬅️ Назад", callback_data="A_vacancies")
+            kb.button(text="🗑 Vakansiyani o'chirish", callback_data=f"C_del:{enc(country)}")
+    kb.button(text="⬅️ Orqaga", callback_data="A_vacancies")
     kb.adjust(2)
-    await callback.message.answer(f"🌍 {country} — вакансии:", reply_markup=kb.as_markup())
+    await callback.message.answer(f"🌍 {country} — vakansiyalar:", reply_markup=kb.as_markup())
 
 
 # --------- Открыть вакансию (C -> показать D) -------------
@@ -521,13 +529,13 @@ async def c_open(callback: CallbackQuery):
     job = dec(enc_job)
     vac = load_vacancies()
     job_obj = vac["countries"].get(country, {}).get("jobs", {}).get(job, {})
-    desc = job_obj.get("description", "Описание отсутствует.")
+    desc = job_obj.get("description", "Tavsif mavjud emas.")
 
     await delete_message_if_exists(callback.message.chat.id, callback.message.message_id)
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Откликнуться", callback_data=f"apply:{enc_country}:{enc_job}")],
-        [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"B_open:{enc_country}")]
+        [InlineKeyboardButton(text="✅ Arizani yuborish", callback_data=f"apply:{enc_country}:{enc_job}")],
+        [InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"B_open:{enc_country}")]
     ])
     await callback.message.answer(
         f"<b>💼 {job}</b>\n🌍 {country}\n\n{desc}",
@@ -551,16 +559,16 @@ async def apply_job(callback: CallbackQuery):
     # Получаем данные пользователя
     users_obj = load_users()
     user_data = next((u for u in users_obj["users"] if u["id"] == user.id), None)
-    phone = user_data.get("phone", "Не указан") if user_data else "Не указан"
+    phone = user_data.get("phone", "Ko'rsatilmagan") if user_data else "Ko'rsatilmagan"
 
     text_for_admin = (
-        f"📢 Новый отклик!\n\n"
+        f"📢 Yangi ariza!\n\n"
         f"👤 {user.full_name}\n"
         f"🆔 {user.id}\n"
-        f"@{user.username or 'нет username'}\n"
+        f"@{user.username or 'username yo''q'}\n"
         f"📞 {phone}\n\n"
-        f"🌍 Страна: {country}\n"
-        f"💼 Вакансия: {job}"
+        f"🌍 Mamlakat: {country}\n"
+        f"💼 Vakansiya: {job}"
     )
 
     # Отправляем всем админам
@@ -568,12 +576,12 @@ async def apply_job(callback: CallbackQuery):
         try:
             await bot.send_message(aid, text_for_admin)
         except Exception as e:
-            log_admin(f"Ошибка отправки отклика админу {aid}: {e}")
+            log_admin(f"Xatolik admin {aid} ga ariza yuborishda: {e}")
 
     # Логируем отклик
-    log_app(f"User {user.id} ({user.full_name}) откликнулся на '{job}' ({country})")
+    log_app(f"Foydalanuvchi {user.id} ({user.full_name}) ariza yubordi: '{job}' ({country})")
 
-    await callback.answer("✅ Ваша заявка отправлена администраторам!", show_alert=True)
+    await callback.answer("✅ Sizning arizangiz adminlarga yuborildi!", show_alert=True)
 
 
 # --------- Админские команды -------------
@@ -581,13 +589,13 @@ async def apply_job(callback: CallbackQuery):
 async def cmd_data(message: Message):
     """Выгрузка данных пользователей в Excel"""
     if message.from_user.id not in ADMIN_IDS:
-        await message.answer("⛔️ Команда только для админов.")
+        await message.answer("⛔️ Bu buyruq faqat adminlar uchun.")
         return
 
     users_obj = load_users()
 
     if not users_obj["users"]:
-        await message.answer("⚠️ Нет зарегистрированных пользователей.")
+        await message.answer("⚠️ Ro'yxatdan o'tgan foydalanuvchilar yo'q.")
         return
 
     try:
@@ -595,53 +603,53 @@ async def cmd_data(message: Message):
         df.to_excel(USERS_XLSX, index=False, engine='openpyxl')
         await message.answer_document(
             FSInputFile(USERS_XLSX),
-            caption=f"📊 Список пользователей\nВсего: {len(users_obj['users'])}"
+            caption=f"📊 Foydalanuvchilar ro'yxati\nJami: {len(users_obj['users'])}"
         )
     except Exception as e:
-        await message.answer(f"❌ Ошибка создания файла: {e}")
+        await message.answer(f"❌ Fayl yaratish xatosi: {e}")
 
 
 @dp.message(Command("log"))
 async def cmd_log(message: Message):
     """Отправка лога админских действий"""
     if message.from_user.id not in ADMIN_IDS:
-        await message.answer("⛔️ Команда только для админов.")
+        await message.answer("⛔️ Bu buyruq faqat adminlar uchun.")
         return
 
     try:
         await message.answer_document(
             FSInputFile(ADMIN_LOG),
-            caption="📄 Лог действий администраторов"
+            caption="📄 Adminlar harakatlari logi"
         )
     except FileNotFoundError:
-        await message.answer("⚠️ Файл логов ещё не создан.")
+        await message.answer("⚠️ Log fayli hali yaratilmagan.")
     except Exception as e:
-        await message.answer(f"❌ Ошибка: {e}")
+        await message.answer(f"❌ Xatolik: {e}")
 
 
 @dp.message(Command("applog"))
 async def cmd_applog(message: Message):
     """Отправка лога откликов пользователей"""
     if message.from_user.id not in ADMIN_IDS:
-        await message.answer("⛔️ Команда только для админов.")
+        await message.answer("⛔️ Bu buyruq faqat adminlar uchun.")
         return
 
     try:
         await message.answer_document(
             FSInputFile(APPS_LOG),
-            caption="📄 Лог откликов на вакансии"
+            caption="📄 Vakansiyalarga arizalar logi"
         )
     except FileNotFoundError:
-        await message.answer("⚠️ Файл логов откликов ещё не создан.")
+        await message.answer("⚠️ Ariza log fayli hali yaratilmagan.")
     except Exception as e:
-        await message.answer(f"❌ Ошибка: {e}")
+        await message.answer(f"❌ Xatolik: {e}")
 
 
 @dp.message(Command("stats"))
 async def cmd_stats(message: Message):
     """Статистика бота (дополнительная команда)"""
     if message.from_user.id not in ADMIN_IDS:
-        await message.answer("⛔️ Команда только для админов.")
+        await message.answer("⛔️ Bu buyruq faqat adminlar uchun.")
         return
 
     users_obj = load_users()
@@ -652,10 +660,10 @@ async def cmd_stats(message: Message):
     total_jobs = sum(len(country["jobs"]) for country in vac["countries"].values())
 
     text = (
-        f"📊 **Статистика бота**\n\n"
-        f"👥 Пользователей: {total_users}\n"
-        f"🌍 Стран: {total_countries}\n"
-        f"💼 Вакансий: {total_jobs}\n"
+        f"📊 **Bot statistikasi**\n\n"
+        f"👥 Foydalanuvchilar: {total_users}\n"
+        f"🌍 Mamlakatlar: {total_countries}\n"
+        f"💼 Vakansiyalar: {total_jobs}\n"
     )
 
     await message.answer(text, parse_mode="Markdown")
@@ -664,7 +672,7 @@ async def cmd_stats(message: Message):
 # --------- Запуск бота -------------
 async def main():
     """Главная функция запуска"""
-    print("🚀 Бот запущен и готов к работе!")
+    print("🚀 Bot ishga tushdi va ishga tayyor!")
     await dp.start_polling(bot)
 
 
